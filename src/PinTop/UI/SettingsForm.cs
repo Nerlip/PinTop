@@ -1,20 +1,20 @@
-using PinTop.Interop;
+﻿using PinTop.Interop;
 using PinTop.Services;
 
 namespace PinTop;
 
 /// <summary>Hotkey, target and startup options.</summary>
-internal sealed class SettingsForm : Form
+internal sealed class SettingsForm : ToolForm
 {
-    private readonly TextBox _hotkeyBox = new();
-    private readonly Label _hotkeyWarning = new();
-    private readonly ComboBox _targetBox = new();
-    private readonly CheckBox _notificationsBox = new();
-    private readonly CheckBox _restoreBox = new();
-    private readonly CheckBox _startupBox = new();
-    private readonly Button _saveButton = new();
-    private readonly Button _cancelButton = new();
-    private readonly Button _resetButton = new();
+    private readonly HotkeyBox _hotkeyBox = new();
+    private readonly Label _hotkeyHint = new();
+    private readonly SegmentedControl _targetBox = new();
+    private readonly ToggleSwitch _notificationsBox = new();
+    private readonly ToggleSwitch _restoreBox = new();
+    private readonly ToggleSwitch _startupBox = new();
+    private readonly FlatButton _saveButton = new() { Kind = FlatButtonKind.Primary };
+    private readonly FlatButton _cancelButton = new();
+    private readonly FlatButton _resetButton = new() { Kind = FlatButtonKind.Ghost };
 
     private uint _hotkeyModifiers;
     private Keys _hotkeyKey;
@@ -30,9 +30,7 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(500, 400);
+        ClientSize = new Size(540, 566);
 
         var icon = AppIcon.LoadWindowIcon();
         if (icon is not null)
@@ -40,24 +38,26 @@ internal sealed class SettingsForm : Form
             Icon = icon;
         }
 
-        var hotkeyGroup = BuildHotkeyGroup();
-        var behaviorGroup = BuildBehaviorGroup();
-        var buttons = BuildButtons();
-
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
-            Padding = new Padding(12),
+            RowCount = 5,
+            Padding = new Padding(24, 20, 24, 18),
+            BackColor = Theme.Current.Page,
         };
+
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.Controls.Add(hotkeyGroup, 0, 0);
-        root.Controls.Add(behaviorGroup, 0, 1);
-        root.Controls.Add(buttons, 0, 2);
+
+        root.Controls.Add(new PageHeader(Strings.AppName, Strings.SettingsSubtitle), 0, 0);
+        root.Controls.Add(BuildHotkeyCard(), 0, 1);
+        root.Controls.Add(BuildBehaviorCard(), 0, 2);
+        root.Controls.Add(BuildFooter(), 0, 4);
 
         Controls.Add(root);
 
@@ -75,90 +75,62 @@ internal sealed class SettingsForm : Form
 
     public AppSettings? Settings { get; private set; }
 
-    private GroupBox BuildHotkeyGroup()
+    private Control BuildHotkeyCard()
     {
-        _hotkeyBox.ReadOnly = true;
-        _hotkeyBox.ShortcutsEnabled = false;
-        _hotkeyBox.Cursor = Cursors.Default;
-        _hotkeyBox.BackColor = SystemColors.Window;
-        _hotkeyBox.ForeColor = SystemColors.WindowText;
-        _hotkeyBox.Dock = DockStyle.Fill;
-        _hotkeyBox.Font = new Font(Font.FontFamily, 10f, FontStyle.Bold);
+        _hotkeyBox.Dock = DockStyle.Top;
+        _hotkeyBox.AccessibleName = Strings.HotkeyLabel;
+        _hotkeyBox.Margin = new Padding(0);
         _hotkeyBox.KeyDown += OnHotkeyKeyDown;
 
-        _hotkeyWarning.Text = Strings.HotkeyNeedsModifier;
-        _hotkeyWarning.ForeColor = Color.Firebrick;
-        _hotkeyWarning.AutoSize = true;
-        _hotkeyWarning.MaximumSize = new Size(390, 0);
-        _hotkeyWarning.Visible = false;
-        _hotkeyWarning.Margin = new Padding(3, 6, 3, 0);
-
-        var hint = new Label
-        {
-            Text = Strings.HotkeyHint,
-            ForeColor = SystemColors.GrayText,
-            AutoSize = true,
-            MaximumSize = new Size(390, 0),
-            Margin = new Padding(3, 6, 3, 0),
-        };
-
-        var label = new Label
-        {
-            Text = Strings.HotkeyLabel,
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(3, 8, 8, 3),
-        };
+        _hotkeyHint.AutoSize = false;
+        _hotkeyHint.Dock = DockStyle.Top;
+        _hotkeyHint.Height = 28;
+        _hotkeyHint.Font = Theme.Small;
+        _hotkeyHint.ForeColor = Theme.Current.Muted;
+        _hotkeyHint.TextAlign = ContentAlignment.TopLeft;
+        _hotkeyHint.UseMnemonic = false;
+        _hotkeyHint.Margin = new Padding(2, 10, 0, 0);
 
         var table = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 2,
-            RowCount = 3,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Theme.Current.Surface,
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        table.Controls.Add(label, 0, 0);
-        table.Controls.Add(_hotkeyBox, 1, 0);
-        table.Controls.Add(_hotkeyWarning, 1, 1);
-        table.Controls.Add(hint, 1, 2);
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        table.Controls.Add(_hotkeyBox, 0, 0);
+        table.Controls.Add(_hotkeyHint, 0, 1);
 
-        var group = new GroupBox
+        var card = new Card(Strings.GroupHotkey)
         {
-            Text = Strings.GroupHotkey,
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(10, 6, 10, 10),
+            Margin = new Padding(0, 0, 0, 14),
         };
-        group.Controls.Add(table);
-        return group;
+        card.Controls.Add(table);
+        return card;
     }
 
-    private GroupBox BuildBehaviorGroup()
+    private Control BuildBehaviorCard()
     {
-        _targetBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        _targetBox.Dock = DockStyle.Fill;
-        _targetBox.Items.Add(Strings.TargetCursor);
-        _targetBox.Items.Add(Strings.TargetActive);
+        _targetBox.Options = new[] { Strings.TargetCursor, Strings.TargetActive };
+        _targetBox.AccessibleName = Strings.TargetLabel;
+        _targetBox.Dock = DockStyle.Top;
+        _targetBox.Margin = new Padding(0, 0, 0, 12);
 
-        _notificationsBox.Text = Strings.ShowNotifications;
-        _notificationsBox.AutoSize = true;
-
-        _restoreBox.Text = Strings.RestoreOnExit;
-        _restoreBox.AutoSize = true;
-
-        _startupBox.Text = Strings.RunAtStartup;
-        _startupBox.AutoSize = true;
-
-        var label = new Label
+        var targetLabel = new Label
         {
             Text = Strings.TargetLabel,
+            Font = Theme.Small,
+            ForeColor = Theme.Current.Muted,
             AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(3, 8, 8, 3),
+            Margin = new Padding(2, 0, 0, 6),
         };
 
         var table = new TableLayoutPanel
@@ -167,63 +139,96 @@ internal sealed class SettingsForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 2,
-            RowCount = 4,
+            RowCount = 5,
+            BackColor = Theme.Current.Surface,
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        table.Controls.Add(label, 0, 0);
-        table.Controls.Add(_targetBox, 1, 0);
-        table.Controls.Add(_notificationsBox, 1, 1);
-        table.Controls.Add(_restoreBox, 1, 2);
-        table.Controls.Add(_startupBox, 1, 3);
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        var group = new GroupBox
+        table.Controls.Add(targetLabel, 0, 0);
+        table.SetColumnSpan(targetLabel, 2);
+        table.Controls.Add(_targetBox, 0, 1);
+        table.SetColumnSpan(_targetBox, 2);
+        AddSwitchRow(table, 2, Strings.ShowNotifications, _notificationsBox);
+        AddSwitchRow(table, 3, Strings.RestoreOnExit, _restoreBox);
+        AddSwitchRow(table, 4, Strings.RunAtStartup, _startupBox);
+
+        var card = new Card(Strings.GroupBehavior)
         {
-            Text = Strings.GroupBehavior,
-            Dock = DockStyle.Fill,
-            Padding = new Padding(10, 6, 10, 10),
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = new Padding(0),
         };
-        group.Controls.Add(table);
-        return group;
+        card.Controls.Add(table);
+        return card;
     }
 
-    private FlowLayoutPanel BuildButtons()
+    private static void AddSwitchRow(TableLayoutPanel table, int row, string text, ToggleSwitch toggle)
+    {
+        var label = new Label
+        {
+            Text = text,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Font = Theme.Body,
+            Margin = new Padding(2, 0, 8, 0),
+            Cursor = Cursors.Hand,
+        };
+
+        toggle.Anchor = AnchorStyles.Right;
+        toggle.Margin = new Padding(0, 3, 4, 3);
+        toggle.AccessibleName = text;
+
+        label.Click += (_, _) => toggle.Checked = !toggle.Checked;
+
+        table.Controls.Add(label, 0, row);
+        table.Controls.Add(toggle, 1, row);
+    }
+
+    private Control BuildFooter()
     {
         _saveButton.Text = Strings.Save;
         _saveButton.AutoSize = true;
-        _saveButton.Padding = new Padding(10, 2, 10, 2);
+        _saveButton.Margin = new Padding(0, 0, 0, 0);
         _saveButton.Click += (_, _) => Save();
 
         _cancelButton.Text = Strings.Cancel;
         _cancelButton.AutoSize = true;
-        _cancelButton.Padding = new Padding(10, 2, 10, 2);
+        _cancelButton.Margin = new Padding(0, 0, 8, 0);
         _cancelButton.DialogResult = DialogResult.Cancel;
 
         _resetButton.Text = Strings.Reset;
         _resetButton.AutoSize = true;
-        _resetButton.Padding = new Padding(10, 2, 10, 2);
+        _resetButton.Margin = new Padding(0);
         _resetButton.Click += (_, _) => ResetToDefaults();
 
-        var panel = new FlowLayoutPanel
+        var footer = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft,
+            Dock = DockStyle.Bottom,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            WrapContents = false,
-            Padding = new Padding(0, 10, 0, 0),
+            ColumnCount = 4,
+            RowCount = 1,
+            BackColor = Theme.Current.Page,
+            Margin = new Padding(0, 10, 0, 0),
         };
-        panel.Controls.Add(_saveButton);
-        panel.Controls.Add(_cancelButton);
-        panel.Controls.Add(_resetButton);
-        return panel;
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        footer.Controls.Add(_resetButton, 0, 0);
+        footer.Controls.Add(_cancelButton, 2, 0);
+        footer.Controls.Add(_saveButton, 3, 0);
+        return footer;
     }
 
     private void Save()
     {
         if (!IsHotkeyValid())
         {
-            _hotkeyWarning.Visible = true;
+            UpdateHotkeyUi();
             _hotkeyBox.Focus();
             return;
         }
@@ -279,7 +284,7 @@ internal sealed class SettingsForm : Form
 
         if (modifiers == 0 && !IsFunctionKey(e.KeyCode))
         {
-            _hotkeyWarning.Visible = true;
+            UpdateHotkeyUi();
             return;
         }
 
@@ -292,14 +297,16 @@ internal sealed class SettingsForm : Form
     {
         if (_hotkeyKey == Keys.None && _hotkeyModifiers != 0)
         {
-            _hotkeyBox.Text = $"{FormatModifiers(_hotkeyModifiers)} + …";
+            _hotkeyBox.Value = $"{FormatModifiers(_hotkeyModifiers)} + вЂ¦";
         }
         else
         {
-            _hotkeyBox.Text = Strings.FormatHotkey(_hotkeyModifiers, _hotkeyKey);
+            _hotkeyBox.Value = Strings.FormatHotkey(_hotkeyModifiers, _hotkeyKey);
         }
 
-        _hotkeyWarning.Visible = !IsHotkeyValid();
+        var valid = IsHotkeyValid();
+        _hotkeyHint.Text = valid ? Strings.HotkeyHint : Strings.HotkeyNeedsModifier;
+        _hotkeyHint.ForeColor = valid ? Theme.Current.Muted : Theme.Current.Danger;
     }
 
     private bool IsHotkeyValid() =>

@@ -22,8 +22,10 @@ network access. Features that need an installer, a service or admin rights are u
 1. Fork the repository and create a branch from `main`.
 2. Build with `dotnet build PinTop.sln -c Release`.
 3. Keep the existing code style: 4-space indent, file-scoped namespaces, nullable enabled.
-4. Describe the change and how you tested it (which Windows version, which apps).
-5. If you change the UI, update the screenshots with `tools/capture-screenshots.ps1` when possible.
+4. The UI is painted by hand with GDI+ (see `src/PinTop/UI/Theme.cs`). Avoid timers, animations, extra
+   assemblies or image assets — the app is meant to stay light on memory.
+5. Describe the change and how you tested it (which Windows version, which apps).
+6. If you change the UI, update the screenshots with `tools/capture-screenshots.ps1` when possible.
 
 Small, focused commits with a clear message are appreciated.
 
@@ -38,7 +40,8 @@ Small, focused commits with a clear message are appreciated.
 | `src/PinTop/Services/AppSettings.cs` | JSON settings in `%APPDATA%\PinTop` |
 | `src/PinTop/Services/Strings.cs` | Russian/English UI strings |
 | `src/PinTop/TrayApp.cs` | tray icon, menu and orchestration |
-| `src/PinTop/UI/` | window list and settings dialogs |
+| `src/PinTop/UI/Theme.cs` | light/dark palettes, fonts and drawing helpers |
+| `src/PinTop/UI/` | hand-drawn controls (cards, buttons, switches) and the two dialogs |
 
 ## License
 

@@ -121,6 +121,9 @@ $exe = Join-Path $PSScriptRoot "..\src\PinTop\bin\$Configuration\net10.0-windows
 if (-not (Test-Path $exe)) { throw "Build first: $exe not found" }
 if (-not (Test-Path $OutDirectory)) { New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null }
 
+# Keep the published screenshots consistent even on a light desktop.
+$env:PINTOP_UI_THEME = 'dark'
+
 Get-Process PinTop -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 400
 
@@ -128,6 +131,20 @@ Start-Sleep -Milliseconds 400
 $notepad = Get-Process notepad -ErrorAction SilentlyContinue |
     Where-Object { $_.MainWindowHandle -ne 0 } |
     Select-Object -First 1
+
+$startedNotepad = $false
+if (-not $notepad) {
+    Start-Process notepad.exe | Out-Null
+    $startedNotepad = $true
+
+    $deadline = (Get-Date).AddSeconds(8)
+    while (-not $notepad -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 300
+        $notepad = Get-Process notepad -ErrorAction SilentlyContinue |
+            Where-Object { $_.MainWindowHandle -ne 0 } |
+            Select-Object -First 1
+    }
+}
 
 if ($notepad) {
     $noteHandle = $notepad.MainWindowHandle
@@ -160,6 +177,11 @@ if ($notepad) {
     [Shooter]::SetWindowPos($notepad.MainWindowHandle, [IntPtr](-2), 0, 0, 0, 0, 0x0013) | Out-Null
 }
 
+if ($startedNotepad -and $notepad) {
+    Stop-Process -Id $notepad.Id -ErrorAction SilentlyContinue
+}
+
 Remove-Item Env:\PINTOP_UI_PREVIEW -ErrorAction SilentlyContinue
+Remove-Item Env:\PINTOP_UI_THEME -ErrorAction SilentlyContinue
 Write-Host 'Done.'
 

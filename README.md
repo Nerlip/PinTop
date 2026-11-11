@@ -30,6 +30,7 @@ everything else until you press the hotkey again. No installation, no account, n
 - **Notifications** — a short toast tells you what was pinned or unpinned (can be turned off).
 - **Start with Windows** — one checkbox, stored in your user profile.
 - **Bilingual UI** — Russian or English, following the Windows display language.
+- **Light and dark themes** — follows the Windows theme; the UI is drawn by hand, with no images or extra libraries.
 - **Portable** — one self-contained executable, no .NET install required.
 
 ## Screenshots
@@ -122,14 +123,14 @@ dotnet publish src/PinTop/PinTop.csproj -c Release -r win-x64 --self-contained t
 src/PinTop/            application (WinForms + Win32 interop)
   Interop/             P/Invoke declarations
   Services/            window pinning, hotkey, settings, strings
-  UI/                  window list and settings dialogs
+  UI/                  hand-drawn controls, theme, settings and window list
 tools/make-icon.ps1            regenerates src/PinTop/Resources/app.ico and docs/icon.png
 tools/capture-screenshots.ps1  regenerates docs/screenshot-*.png (Debug build + desktop)
 tools/smoke-test.ps1           end-to-end hotkey check against a Notepad window
 ```
 
-The screenshot helper uses a `PINTOP_UI_PREVIEW` environment variable that only exists in Debug builds
-(`#if DEBUG`), so release binaries never contain it.
+The screenshot helper uses `PINTOP_UI_PREVIEW` and `PINTOP_UI_THEME` environment variables that only exist in
+Debug builds (`#if DEBUG`), so release binaries never contain them.
 
 ## Contributing
 

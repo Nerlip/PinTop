@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
     End-to-end check: pins and unpins a Notepad window through PinTop's global hotkey.
     Requires an interactive desktop and the default Ctrl+Alt+T hotkey.
@@ -54,6 +54,13 @@ public static class WinTest
         return (GetWindowLongPtr(hWnd, -20).ToInt64() & 0x8) != 0;
     }
 
+    public static void Raise(IntPtr hWnd)
+    {
+        // Z-order raise without activation rights; SetForegroundWindow is often refused for another process.
+        SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010);
+        SetForegroundWindow(hWnd);
+    }
+
     public static void Pin(IntPtr hWnd)
     {
         // HWND_TOP = 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
@@ -80,24 +87,27 @@ public static class WinTest
         return name.ToString();
     }
 
-    /// <summary>Finds a spot on the primary monitor that is not covered by any window.</summary>
-    public static bool FindFreePoint(out int x, out int y)
+    /// <summary>Finds a point inside the window that actually hit-tests to it (no topmost window above).</summary>
+    public static bool FindProbePoint(IntPtr hWnd, out int x, out int y)
     {
-        int screenWidth = GetSystemMetrics(0);
-        int screenHeight = GetSystemMetrics(1);
-
-        for (int candidateY = 160; candidateY < screenHeight - 160; candidateY += 60)
+        RECT rect;
+        if (!GetWindowRect(hWnd, out rect))
         {
-            for (int candidateX = 160; candidateX < screenWidth - 160; candidateX += 60)
-            {
-                POINT point;
-                point.X = candidateX;
-                point.Y = candidateY;
-                IntPtr root = GetAncestor(WindowFromPoint(point), 2);
-                if (root == IntPtr.Zero) continue;
+            x = 0;
+            y = 0;
+            return false;
+        }
 
-                string className = ClassName(root);
-                if (className == "Progman" || className == "WorkerW" || className == "SysListView32")
+        int left = rect.Left + 40;
+        int right = rect.Right - 40;
+        int top = rect.Top + 50;
+        int bottom = rect.Bottom - 30;
+
+        for (int candidateY = top; candidateY <= bottom; candidateY += 40)
+        {
+            for (int candidateX = left; candidateX <= right; candidateX += 40)
+            {
+                if (RootAt(candidateX, candidateY) == hWnd)
                 {
                     x = candidateX;
                     y = candidateY;
@@ -167,22 +177,27 @@ if (-not $target) { throw 'Could not find a Notepad window' }
 $hwnd = $target.MainWindowHandle
 [WinTest]::Unpin($hwnd) | Out-Null
 
-# Pick a spot on the desktop that no window covers, then park Notepad on it. That way the
-# cursor probe cannot accidentally land on the user's own windows on this live desktop.
-$probeX = 0
-$probeY = 0
-if (-not [WinTest]::FindFreePoint([ref]$probeX, [ref]$probeY)) {
-    throw 'Could not find an uncovered spot on the primary monitor.'
-}
+# Park Notepad in the middle of the primary monitor and raise it. The desktop is live and
+# may be fully covered, so instead of hunting for empty desktop we probe inside the window.
+$screenWidth = [WinTest]::GetSystemMetrics(0)
+$screenHeight = [WinTest]::GetSystemMetrics(1)
 
-Write-Host "probe-point=${probeX}x${probeY}"
 [WinTest]::ShowWindow($hwnd, 9) | Out-Null
-[WinTest]::PlaceCentered($hwnd, $probeX, $probeY) | Out-Null
-[WinTest]::SetForegroundWindow($hwnd) | Out-Null
-[WinTest]::SetCursorPos($probeX, $probeY) | Out-Null
+[WinTest]::PlaceCentered($hwnd, [int]($screenWidth / 2), [int]($screenHeight / 2)) | Out-Null
+[WinTest]::Raise($hwnd)
 Start-Sleep -Milliseconds 600
 
+$probeX = 0
+$probeY = 0
+if (-not [WinTest]::FindProbePoint($hwnd, [ref]$probeX, [ref]$probeY)) {
+    throw 'The Notepad window is completely covered by a topmost window.'
+}
+
+[WinTest]::SetCursorPos($probeX, $probeY) | Out-Null
+Start-Sleep -Milliseconds 300
+
 $underCursor = [WinTest]::RootAt($probeX, $probeY)
+Write-Host "probe-point=${probeX}x${probeY}"
 Write-Host "target: $([WinTest]::Describe($hwnd))"
 Write-Host "under cursor: $([WinTest]::Describe($underCursor))"
 
@@ -205,32 +220,58 @@ if (-not $hotkeyReady) {
     throw 'PinTop did not register Ctrl+Alt+T. Is another program using it?'
 }
 
-# Raise the target to the front right before pressing: the desktop is live and another
-# window could have covered the probe point while we waited for PinTop to start.
+# Raise the target right before pressing: the desktop is live and another window could have
+# covered the probe point (focus stealing is possible while PinTop starts up), so retry a few times.
+$probeX = 0
+$probeY = 0
+# Pin Notepad ourselves first: on a busy desktop it may be impossible to raise it above the
+# active window, while a topmost window is always reachable by the cursor probe.
 [WinTest]::ShowWindow($hwnd, 9) | Out-Null
-[WinTest]::SetForegroundWindow($hwnd) | Out-Null
-[WinTest]::PlaceCentered($hwnd, $probeX, $probeY) | Out-Null
+[WinTest]::Pin($hwnd) | Out-Null
+[WinTest]::Raise($hwnd)
+Start-Sleep -Milliseconds 400
+
+if (-not [WinTest]::FindProbePoint($hwnd, [ref]$probeX, [ref]$probeY)) {
+    [WinTest]::Unpin($hwnd) | Out-Null
+    throw 'The Notepad window is not reachable even when pinned on top.'
+}
+
 [WinTest]::SetCursorPos($probeX, $probeY) | Out-Null
-Start-Sleep -Milliseconds 500
+Start-Sleep -Milliseconds 300
 
 $underCursor = [WinTest]::RootAt($probeX, $probeY)
 if ($underCursor -ne $hwnd) {
+    [WinTest]::Unpin($hwnd) | Out-Null
     throw "The probe point is covered by $([WinTest]::Describe($underCursor))."
 }
 
-# PinTop toggles, so start from the unpinned state and expect pin, then unpin.
-$startedUnpinned = -not [WinTest]::IsTopmost($hwnd)
-Write-Host "topmost-before-press=$(-not $startedUnpinned)"
+# Notepad starts pinned by the script, so the first press must unpin it and the second pin it back.
+$startedPinned = [WinTest]::IsTopmost($hwnd)
+Write-Host "topmost-before-press=$startedPinned"
 
 [WinTest]::PressCtrlAltT()
 Start-Sleep -Milliseconds 900
-$pinned = [WinTest]::IsTopmost($hwnd)
-Write-Host "topmost-after-first-press=$pinned"
+$unpinWorked = -not [WinTest]::IsTopmost($hwnd)
+Write-Host "topmost-after-first-press=$(-not $unpinWorked)"
+
+# The desktop is live: make sure the cursor still points at Notepad before the second press.
+[WinTest]::Raise($hwnd)
+Start-Sleep -Milliseconds 300
+if ([WinTest]::RootAt($probeX, $probeY) -ne $hwnd) {
+    if (-not [WinTest]::FindProbePoint($hwnd, [ref]$probeX, [ref]$probeY)) {
+        Write-Host 'SMOKE TEST INCOMPLETE: the probe point was stolen by another window'
+        [WinTest]::Unpin($hwnd) | Out-Null
+        exit 1
+    }
+
+    [WinTest]::SetCursorPos($probeX, $probeY) | Out-Null
+    Start-Sleep -Milliseconds 300
+}
 
 [WinTest]::PressCtrlAltT()
 Start-Sleep -Milliseconds 900
-$unpinned = -not [WinTest]::IsTopmost($hwnd)
-Write-Host "topmost-after-second-press=$(-not $unpinned)"
+$pinWorked = [WinTest]::IsTopmost($hwnd)
+Write-Host "topmost-after-second-press=$pinWorked"
 
 # Leave the desktop as we found it.
 if ([WinTest]::IsTopmost($hwnd)) {
@@ -240,7 +281,7 @@ if ([WinTest]::IsTopmost($hwnd)) {
 $settingsPath = Join-Path $env:APPDATA 'PinTop\settings.json'
 Write-Host "settings-file=$settingsPath exists=$([bool](Test-Path $settingsPath))"
 
-if ($startedUnpinned -and $pinned -and $unpinned) {
+if ($startedPinned -and $unpinWorked -and $pinWorked) {
     Write-Host 'SMOKE TEST PASSED'
 } else {
     Write-Host 'SMOKE TEST FAILED'

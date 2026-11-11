@@ -13,6 +13,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly NotifyIcon _trayIcon;
     private readonly ContextMenuStrip _menu;
     private readonly ToolStripMenuItem _pinItem;
+    private readonly ToolStripLabel _headerItem;
     private readonly HotkeyWindow _hotkeyWindow;
     private readonly System.Windows.Forms.Timer _watcher;
 
@@ -27,24 +28,61 @@ internal sealed class TrayApp : ApplicationContext
     {
         _settings = AppSettings.Load();
 
-        _menu = new ContextMenuStrip();
-        _pinItem = new ToolStripMenuItem { Font = new Font(_menu.Font, FontStyle.Bold) };
+        _menu = new ContextMenuStrip
+        {
+            Renderer = new AppMenuRenderer(),
+            ShowImageMargin = false,
+            Font = Theme.Menu,
+            ForeColor = Theme.Current.Text,
+            BackColor = Theme.Current.Surface,
+            Padding = new Padding(5),
+        };
+
+        _headerItem = new ToolStripLabel
+        {
+            Text = Strings.MenuHeader(0),
+            Font = Theme.Small,
+            ForeColor = Theme.Current.Muted,
+            Enabled = false,
+            Padding = new Padding(8, 3, 8, 3),
+        };
+
+        _pinItem = new ToolStripMenuItem
+        {
+            Font = new Font(_menu.Font, FontStyle.Bold),
+            ForeColor = Theme.Current.Accent,
+            Padding = new Padding(8, 7, 8, 7),
+        };
         _pinItem.Click += (_, _) => ToggleTarget(fromTray: true);
 
-        var listItem = new ToolStripMenuItem(Strings.WindowList);
+        var listItem = new ToolStripMenuItem(Strings.WindowList)
+        {
+            Padding = new Padding(8, 7, 8, 7),
+        };
         listItem.Click += (_, _) => ShowWindowList();
 
-        var settingsItem = new ToolStripMenuItem(Strings.Settings);
+        var settingsItem = new ToolStripMenuItem(Strings.Settings)
+        {
+            Padding = new Padding(8, 7, 8, 7),
+        };
         settingsItem.Click += (_, _) => ShowSettings();
 
-        var aboutItem = new ToolStripMenuItem(Strings.About);
+        var aboutItem = new ToolStripMenuItem(Strings.About)
+        {
+            Padding = new Padding(8, 7, 8, 7),
+        };
         aboutItem.Click += (_, _) => ShowAbout();
 
-        var exitItem = new ToolStripMenuItem(Strings.Exit);
+        var exitItem = new ToolStripMenuItem(Strings.Exit)
+        {
+            Padding = new Padding(8, 7, 8, 7),
+        };
         exitItem.Click += (_, _) => ExitApplication();
 
         _menu.Items.AddRange(new ToolStripItem[]
         {
+            _headerItem,
+            new ToolStripSeparator(),
             _pinItem,
             listItem,
             settingsItem,
@@ -54,7 +92,6 @@ internal sealed class TrayApp : ApplicationContext
         });
 
         _menu.Opening += (_, _) => UpdatePinItemText();
-        _menu.ShowImageMargin = false;
 
         _trayIconImage = AppIcon.LoadTrayIcon();
         _trayIcon = new NotifyIcon
@@ -247,8 +284,15 @@ internal sealed class TrayApp : ApplicationContext
 
     private void UpdateTooltip()
     {
-        _trayIcon.Text = Strings.TrayTooltip(_pinnedWindows.Count);
+        var count = _pinnedWindows.Count;
+        _trayIcon.Text = Strings.TrayTooltip(count);
+        _headerItem.Text = Strings.MenuHeader(count);
     }
+
+#if DEBUG
+    /// <summary>Used by tools/capture-screenshots.ps1 to render the real tray menu.</summary>
+    internal void ShowMenuForPreview(Point location) => _menu.Show(location);
+#endif
 
     private void ShowBalloon(string text)
     {

@@ -73,13 +73,25 @@ internal static class Strings
 
     public static string WindowListTitle => T("Окна — PinTop", "Windows — PinTop");
 
+    public static string WindowListHeader => T("Окна", "Windows");
+
+    public static string SearchPlaceholder => T("Поиск по названию или процессу", "Search by title or process");
+
+    public static string MenuHeader(int pinnedCount) => pinnedCount <= 0
+        ? $"{AppName} {Version}"
+        : T($"{AppName} {Version} · закреплено: {pinnedCount}", $"{AppName} {Version} · {pinnedCount} pinned");
+
     public static string ColumnWindow => T("Окно", "Window");
 
     public static string ColumnProcess => T("Процесс", "Process");
 
     public static string WindowListHint => T(
-        "Отметьте окна, которые должны оставаться поверх остальных. Двойной щелчок переключает на окно.",
-        "Tick the windows that should stay above the others. Double-click brings a window to the front.");
+        "Отметьте окна, которые должны оставаться поверх остальных.",
+        "Tick the windows that should stay above the others.");
+
+    public static string PinnedSummary(int pinned, int total) => pinned == 0
+        ? T($"Окон: {total}", $"Windows: {total}")
+        : T($"Закреплено: {pinned} из {total}", $"Pinned: {pinned} of {total}");
 
     public static string NoWindows => T("Нет окон для отображения.", "No windows to show.");
 
@@ -90,6 +102,8 @@ internal static class Strings
     public static string Close => T("Закрыть", "Close");
 
     public static string SettingsTitle => T("Настройки — PinTop", "Settings — PinTop");
+
+    public static string SettingsSubtitle => T("Горячая клавиша, цель и запуск", "Hotkey, target and startup");
 
     public static string GroupHotkey => T("Горячая клавиша", "Hotkey");
 

@@ -32,6 +32,11 @@ internal static class Program
             case "settings":
                 Application.Run(new SettingsForm(AppSettings.Load()));
                 return;
+            case "menu":
+                var tray = new TrayApp();
+                tray.ShowMenuForPreview(new Point(360, 260));
+                Application.Run();
+                return;
         }
 #endif
 
